@@ -12,6 +12,7 @@
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
+#include "L1Trigger/TrackFindingTracklet/interface/Settings.h"
 
 namespace trklet {
 
@@ -38,6 +39,104 @@ namespace trklet {
     std::reverse(str.begin(), str.end());
     return str;
   }
+
+  inline double cosModuleTilt = 0.886454;
+  inline double sinModuleTilt = 0.504148;
+
+/*
+  inline double tmzinner[3][13] =
+    {{172.095, 217.118, 267.987, 315.184, 374.203, 443.696, 526.772, 611.087, 720.246, 850.617, 1004.205, 1182.332, 1200},
+     {269.888, 321.982, 378.406, 431.314, 495.745, 567.262, 646.108, 725.236, 820.642, 927.596, 1048.134, 1181.542, 1200},
+     {363.047, 416.152, 472.684, 533.009, 597.236, 665.109, 727.825, 804.833, 888.179, 978.285, 1075.169, 1179.356, 1200}};
+*/
+
+  inline double tmzinner[3][8] = {{150, 300, 450, 600, 750, 900, 1050, 1200},
+                                  {150, 300, 450, 600, 750, 900, 1050, 1200},
+                                  {150, 300, 450, 600, 750, 900, 1050, 1200}};
+
+
+  //inline unsigned int nzbins = 13;
+  inline unsigned int nzbins = 8;
+
+  inline unsigned int ztozbin(unsigned int layerdisk, double z){
+    //double offset = .25;
+    double offset = 0;    
+
+    unsigned int zbin = 0;
+
+    for (unsigned int i = 0; i < nzbins; i++){
+      if ( z < tmzinner[layerdisk][i]/10 - offset ){
+        zbin = i;
+        break;
+      }
+    }
+    assert(zbin<99);
+    return zbin;
+  }
+
+  inline unsigned int nrbins = 8;
+
+  inline double TErbins[8] = {28.0625, 33.625, 39.1875, 44.75, 50.3125, 55.875, 61.4375, 67.0};
+
+  inline unsigned int rtorbin(unsigned int layerdisk, double r, bool isPS){
+    if (!(isPS)){
+      return 0;
+    }
+
+    assert(layerdisk>5);
+    unsigned int rbin = 0;
+    for (unsigned int i=0; i < nrbins; i++ ){
+      if (r <  TErbins[i]){
+        rbin = i;
+        break;
+      }
+    }
+    return rbin;
+  }
+
+
+  inline  double bendDisk_TE(double r, double z, int disk, double rinv, double stripPitch, bool isPS, bool useTMCorr){
+    double dr = 0.18;
+    double CF = 1;
+
+    if (useTMCorr){
+      if (((disk==1 || disk==2) && isPS) || ((disk==3 || disk==4) && r<=Settings::diskSpacingCut[1]) || (disk==5 && r<=Settings::diskSpacingCut[2])){
+        dr = 0.4;
+      }
+      CF = r/z;
+    }
+
+    double delta = r*dr*0.5*rinv*CF;
+    double bend  = delta/stripPitch;
+
+    return bend;
+  }
+
+  inline double bendBarrel_TE(double r, double z, int layer, double rinv, double stripPitch, bool useTMCorr){
+
+    double dr = 0.18;
+    double CF =1;
+
+    if (useTMCorr){
+      if ((layer ==1 && z<=Settings::barrelSpacingCut[3]) || (layer==2 && Settings::barrelSpacingCut[1] <=z && z<=Settings::barrelSpacingCut[4]) || (layer==3  && Settings::barrelSpacingCut[3] <=z && z<=Settings::barrelSpacingCut[5])){
+        dr = 0.26;
+      }
+      else if ((layer==1 && Settings::barrelSpacingCut[2]<=z && z<=Settings::barrelSpacingCut[5]) || (layer==2 && Settings::barrelSpacingCut[4]<=z && z<=Settings::barrelSpacingCut[5])){
+        dr = 0.4;
+      }
+      else if ((layer==2 && z<=Settings::barrelSpacingCut[1]) || (layer==3 && z<=Settings::barrelSpacingCut[3])){
+        dr =0.16;
+      } 
+      if ((layer==1 && Settings::barrelSpacingCut[0]<=z && z<=Settings::barrelSpacingCut[5]) || (layer==2 && Settings::barrelSpacingCut[1] <=z && z<=Settings::barrelSpacingCut[5]) || (layer==3 && Settings::barrelSpacingCut[3]<=z && z<=Settings::barrelSpacingCut[5])){
+          CF = cosModuleTilt*(z/r) + sinModuleTilt;
+      }
+    }
+    double delta = r*dr*0.5*rinv;
+    double bend  = delta/(stripPitch*CF);
+
+    return bend;
+}
+
 
   inline double bendstrip(double r, double rinv, double stripPitch) {
     constexpr double dr = 0.18;

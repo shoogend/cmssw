@@ -100,12 +100,36 @@ void TrackletEngine::execute() {
         FPGAWord iphiinnerbin = innervmstub.finephi();
         FPGAWord iphiouterbin = outervmstub.finephi();
 
+        FPGAWord z=innervmstub.stub()->z(); //Should this be moved up 2 loops?
+        int znbits=z.nbits();
+        int iz=abs(z.value());
+
+        int izbin;
+  
+        if (iSeed_ == 0 || iSeed_ == 1 || iSeed_ == 2){
+          izbin = ztozbin(layerdisk1_, iz*120/(1<<(znbits-1)));
+        } else {
+          izbin = 0;
+        }
+
+
+        //edm::LogVerbatim("Tracklet") << "zbin = " << izbin;
+        //edm::LogVerbatim("Tracklet") << "seed = " << iSeed_;
+
+
+
+
         unsigned int index = (iphiinnerbin.value() << outerphibits_) + iphiouterbin.value();
 
-        if (iSeed_ >= 4) {  //Also use r-position
+        if (iSeed_ < 3 || iSeed_ == 6 || iSeed_ == 7) 
+          index += (izbin<<(outerphibits_+innerphibits_));
+
+
+        if (iSeed_ == 4 || iSeed_ == 5) {  //Also use r-position
           int ir = ((ibin & 3) << 1) + (rzbin >> 2);
           index = (index << 3) + ir;
         }
+
 
         if (start != ibin)
           rzbin += 8;
@@ -118,6 +142,7 @@ void TrackletEngine::execute() {
 
         int ptinnerindex = (index << innerbend.nbits()) + innerbend.value();
         int ptouterindex = (index << outerbend.nbits()) + outerbend.value();
+
 
         if (!(innerptlut_.lookup(ptinnerindex) && outerptlut_.lookup(ptouterindex))) {
           if (settings_.debugTracklet()) {
@@ -146,6 +171,7 @@ void TrackletEngine::execute() {
 }
 
 void TrackletEngine::setVMPhiBin() {
+
   if (innervmstubs_ == nullptr || outervmstubs_ == nullptr)
     return;
 
@@ -188,6 +214,7 @@ void TrackletEngine::setVMPhiBin() {
                           outerphimax,
                           innermem,
                           outermem);
+
 
   TrackletLUT innertememlut(settings_);
   TrackletLUT outertememlut(settings_);
