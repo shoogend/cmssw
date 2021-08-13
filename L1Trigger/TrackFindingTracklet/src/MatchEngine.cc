@@ -269,7 +269,7 @@ void MatchEngine::execute() {
 
       //Check if stub bend and proj rinv consistent
       if (passz && passphi) {
-        if (luttable_.lookup(index)) {
+        if (true or luttable_.lookup(index)) { // added "true or" to test different encoding schemes
           Tracklet* proj = vmprojs_->getTracklet(projindex);
           std::pair<Tracklet*, int> tmp(proj, vmprojs_->getAllProjIndex(projindex));
           if (settings_.writeMonitorData("Seeds")) {

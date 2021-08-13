@@ -247,6 +247,7 @@ void TrackletEventProcessor::event(SLHCEvent& ev) {
     }
     VMRouterTimer_.stop();
 
+    
     // tracklet engine
     TETimer_.start();
     sector_->executeTE();
@@ -378,6 +379,7 @@ void TrackletEventProcessor::event(SLHCEvent& ev) {
       sector_->writeCT(first);
     }
     PDTimer_.stop();
+    
   }
 }
 

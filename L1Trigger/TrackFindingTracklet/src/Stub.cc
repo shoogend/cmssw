@@ -89,6 +89,8 @@ Stub::Stub(L1TStub& stub, Settings const& settings, Globals& globals) : settings
 
     for (unsigned int isimtrk = 0; isimtrk < nsimtrks; isimtrk++) {
       const L1SimTrack& simtrk = globals.event()->simtrack(isimtrk);
+      // original code
+      /*
       if (stub.tpmatch2(simtrk.trackid())) {
         double rinv = simtrk.charge() * 0.01 * settings_.c() * settings_.bfield() / simtrk.pt();
         double pitch = settings_.stripPitch(stub.isPSmodule());
@@ -110,6 +112,36 @@ Stub::Stub(L1TStub& stub, Settings const& settings, Globals& globals) : settings
         globals.ofstream("stubbend.dat") << stub.r() << " " << z    << " " << layerdisk_ << " "
                                          << rinv     << " " << bend << " " << bendStrip  << " "  << newbend << " " << stub.isPSmodule() << endl;
 
+
+        globals.ofstream("stubbend.dat") << layerdisk_ << " " << stub.isPSmodule() << " "
+                                         << simtrk.pt() * simtrk.charge() << " " << bend << " " << newbend << " "
+                                         << settings.benddecode(newbend, layerdisk_, stub.isPSmodule()) << " "
+                                         << settings.bendcut(newbend, layerdisk_, stub.isPSmodule()) << " " <<stub.r() << " " << stub.z() << endl;
+      */
+      // Version to use with changed bendcuts, benddecode tables		
+      if (stub.tpmatch2(simtrk.trackid())) {
+        double dr = 0.18;
+        double rinv = simtrk.charge() * 0.01 * settings_.c() * settings_.bfield() / simtrk.pt();
+        double pitch = settings_.stripPitch(stub.isPSmodule());
+        double bend;
+        double bendStrip;
+        double z = abs(stub.z());
+
+        bendStrip = bendstrip(stub.r(), rinv, pitch);
+
+        if (layerdisk_ >= N_LAYER){
+          int disk = layerdisk_ - N_LAYER + 1;
+          bend = bendDisk_TE( stub.r(), z, disk, rinv, pitch, stub.isPSmodule(), true );
+        }
+        else {
+          int layer = layerdisk_ + 1;
+          bend = bendBarrel_TE( stub.r(), z, layer, rinv, pitch, true );
+        
+	
+        globals.ofstream("stubbend.dat") << stub.r() << " " << stub.z()    << " " << layerdisk_ << " "
+	                               << rinv     << " " << bend << " " << bendStrip  << " "  << newbend << " " << stub.isPSmodule() << endl;
+	
+	}
       }
     }
   }

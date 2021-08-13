@@ -96,6 +96,12 @@
 #include "L1Trigger/TrackTrigger/interface/TrackQuality.h"
 
 //////////////
+/// Bend and encoding tools
+#include "BendCalc.h"
+#include "even_encoding.h"
+#include "quantile_encoding.h"
+
+//////////////
 // STD HEADERS
 #include <memory>
 #include <string>
@@ -155,6 +161,10 @@ private:
 
   string asciiEventOutName_;
   std::ofstream asciiEventOut_;
+
+  // optional outfiles to generate chosen data
+  //std::ofstream outfile;
+  // std::ofstream outfile2;
 
   // settings containing various constants for the tracklet processing
   trklet::Settings settings;
@@ -288,7 +298,10 @@ L1FPGATrackProducer::~L1FPGATrackProducer() {
 
 ///////END RUN
 //
-void L1FPGATrackProducer::endRun(const edm::Run& run, const edm::EventSetup& iSetup) {}
+void L1FPGATrackProducer::endRun(const edm::Run& run, const edm::EventSetup& iSetup) {
+  //outfile.close();
+  // outfile2.close();
+}
 
 ////////////
 // BEGIN JOB
@@ -302,6 +315,10 @@ void L1FPGATrackProducer::beginRun(const edm::Run& run, const edm::EventSetup& i
   settings.setBfield(mMagneticFieldStrength);
 
   setup_ = iSetup.getData(esGetToken_);
+
+  // name optional data files
+  // outfile.open("bend_calc_100_rotation.txt");
+  // outfile2.open("bend_variations_5_not_flipped.txt");
 
   // initialize the tracklet event processing (this sets all the processing & memory modules, wiring, etc)
   eventProcessor.init(settings);
@@ -502,9 +519,15 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
         LocalPoint clustlp_outer = topol_outer->localPosition(coords_outer);
         GlobalPoint posStub_outer = theGeomDet_outer->surface().toGlobal(clustlp_outer);
 
-        bool isFlipped = (posStub_outer.mag() < posStub_inner.mag());
+        //bool isFlipped = (posStub_outer.mag() < posStub_inner.mag());   // redefined below
+	bool isFlipped2 = (posStub_outer.mag2() < posStub_inner.mag2());
 
         vector<int> assocTPs;
+
+	double invPt=0.0;
+	double Pt=0.0;
+	//double Pt_id=0.0;
+	double charge = 0.0;
 
         for (unsigned int iClus = 0; iClus <= 1; iClus++) {  // Loop over both clusters that make up stub.
 
@@ -515,6 +538,10 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
 
           for (const edm::Ptr<TrackingParticle>& tpPtr : vecTpPtr) {
             if (translateTP.find(tpPtr) != translateTP.end()) {
+	      invPt = 1.0/tpPtr->pt();
+	      Pt = tpPtr->pt();
+	      //Pt_id = tpPtr->pdgId();
+	      charge = tpPtr->charge();
               if (iClus == 0) {
                 assocTPs.push_back(translateTP.at(tpPtr));
               } else {
@@ -527,11 +554,77 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
           }
         }
 
+
         double stubbend = stub.first->bendFE();  //stub.first->rawBend()
         if (ttPos.z() < -120) {
           stubbend = -stubbend;
         }
 
+	// calculating parameters for bend and new bit
+	
+	double x, y, z, r, beta, inner, outer;
+	int module;
+	x = abs(ttPos.x()/100);
+	y = abs(ttPos.y()/100);
+	z = abs(ttPos.z()/100);
+
+	r = radius(x,y);
+	beta = get_tilt(z, layerdisk); 
+		
+	inner = stub.first->innerClusterPosition();
+	outer = stub.first->clusterRef(1)->findAverageLocalCoordinates().x();
+	module = module_type(layerdisk, r);
+	
+	
+	double x_out, y_out, z_out, x_in, y_in, z_in, r_in, r_out;
+	x_out = posStub_outer.x()/100;
+	y_out = posStub_outer.y()/100;
+	z_out = posStub_outer.z()/100;
+	x_in = posStub_inner.x()/100;
+	y_in = posStub_inner.y()/100;
+	z_in = posStub_inner.z()/100;
+	
+	r_in = radius(x_in, y_in);
+	r_out = radius(x_out, y_out);
+
+	// rotated coordinates to calculate new is flipped definition
+	double r2_in, r2_out;
+	double z2_in, z2_out;
+	//r2_in = r2(r_in, abs(z_in), beta);
+	//r2_out = r2(r_out, abs(z_out), beta);
+	z2_in = z2(r_in, abs(z_in), beta);
+	z2_out = z2(r_out, abs(z_out), beta);
+
+	bool isFlipped = abs(z2_out) < abs(z2_in);
+    
+	// calculate the new bend
+	double new_bend_calc, new_bend_int;
+	new_bend_calc = new_bend(inner, outer, x, y, z, layerdisk, isFlipped);
+	new_bend_int = int_bend(new_bend_calc, module);
+
+	// obtain the new bit for given bend
+	//string new_bit = even_encoding.encode_top(new_bend_int, layerdisk, beta, r);
+	string new_bit = quantile_encoding.encode_top_q(new_bend_int, layerdisk, beta, r);
+	
+	// change the stubword using the new bit
+	string stubword_original = stubword;
+	if (module == 0) {
+	  stubword.replace(33, 3, new_bit);
+	}
+	else {
+	  stubword.replace(32, 4, new_bit);
+	}
+
+	// update the stubwordhex to reflect changed stubword
+	stubwordhex = "";
+
+	for (unsigned int i = 0; i < 9; i++) {
+          bitset<4> bits(stubword.substr(i * 4, 4));
+          ulong val = bits.to_ulong();
+          stubwordhex += ((val < 10) ? ('0' + val) : ('A' + val - 10));
+        }
+	
+	
         ev.addStub(dtcname,
                    region,
                    layerdisk,
@@ -547,6 +640,75 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
 
         const trklet::L1TStub& lastStub = ev.lastStub();
         stubMap[lastStub] = stub.first;
+
+	int sign=-1;//isFlipped?-1:1;
+
+	if (invPt!=0) {
+	  // trying out different bend calculations for debugging purposes
+	  double stub_bend = stub_bend_calc(Pt, charge, module, r*100, z, layerdisk);
+	  double encoded_bend = sign*stub.first->bendFE();	  
+	  double pt_bend_calc = int_bend(pt_bend(x, y, z, layerdisk, invPt, charge), module);
+	  double new_bend_opposite = int_bend(new_bend(inner, outer, x, y, z, layerdisk, not isFlipped), module); // flips the bend calculation, notice NOT isFlipped
+	  
+	  // various printout options
+	  /*
+	  cout<<layerdisk<<" "
+	      <<module<<" "
+	      <<Pt<<" "
+	      <<encoded_bend<<" "
+	      <<new_bend_int<<" "
+	    //<<stub_bend<<" "
+	    //<<pt_bend_calc<<" "
+	      <<x<<" "
+	      <<y<<" "
+	      <<z<<" "
+	      <<z_in<< " "
+	      <<z_out<< " "
+	      <<r<<" "
+	      <<beta<<" "
+	      <<inner<<" "
+	      <<posStub_outer.mag()<<" "
+	      <<posStub_inner.mag()<<" "
+	      <<posStub_outer.mag2()<<" "
+	      <<posStub_inner.mag2()<<" "
+	      <<outer<<endl;
+	  */
+
+	  // various outfile options
+	  /*
+	  outfile<<layerdisk<<" "
+	      <<module<<" "
+	      <<Pt<<" "
+	      <<encoded_bend<<" "
+	      <<new_bend_int<<" "
+	    //<<stub_bend<<" "
+	    //<<pt_bend_calc<<" "
+	      <<x_in<<" "
+	      <<y_in<<" "
+	      <<z_in<<" "
+	      <<x_out<<" "
+	      <<y_out<<" "
+	      <<z_out<<" "
+	      <<r_in<<" "
+	      <<r_out<<" "
+	      <<r2_in<<" "
+	      <<r2_out<<" "
+	      <<z2_in<<" "
+	      <<z2_out<<" "
+	      <<beta<<" "
+	      <<inner<<" "
+	      <<outer<<" "
+	      <<isFlipped<<" "
+	      <<new_bend_opposite<<" "
+	      << (inner - outer) << " "
+	      << (z_in - z_out)<<" "
+		 << (z2_in - z2_out)<<" "
+	      <<posStub_outer.mag()<<" "
+	      <<posStub_inner.mag()<<" "
+	      <<endl;	  
+	  */
+	}
+
       }
     }
   }
