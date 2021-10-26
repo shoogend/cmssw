@@ -100,37 +100,40 @@ void TrackletEngine::execute() {
         FPGAWord iphiinnerbin = innervmstub.finephi();
         FPGAWord iphiouterbin = outervmstub.finephi();
 
-        FPGAWord z=innervmstub.stub()->z(); //Should this be moved up 2 loops?
-        int znbits=z.nbits();
-        int iz=abs(z.value());
-
-        int izbin;
-  
-        if (iSeed_ == 0 || iSeed_ == 1 || iSeed_ == 2){
-          izbin = ztozbin(layerdisk1_, iz*120/(1<<(znbits-1)));
-        } else {
-          izbin = 0;
-        }
-
-
-        //edm::LogVerbatim("Tracklet") << "zbin = " << izbin;
-        //edm::LogVerbatim("Tracklet") << "seed = " << iSeed_;
-
-
-
-
         unsigned int index = (iphiinnerbin.value() << outerphibits_) + iphiouterbin.value();
 
-        if (iSeed_ < 3 || iSeed_ == 6 || iSeed_ == 7) 
+
+        int izbin = 0;
+
+        if (iSeed_ < 3 ){ 
+          FPGAWord z = innervmstub.stub()->z(); 
+          int znbits=z.nbits();
+          int iz=abs(z.value());
+
+          izbin = ztozbin(layerdisk1_, iz*120/(1<<(znbits-1)));
+
           index += (izbin<<(outerphibits_+innerphibits_));
+        }
 
+        int irbin = 0;
 
-        if (iSeed_ == 4 || iSeed_ == 5) {  //Also use r-position
-          int ir = ((ibin & 3) << 1) + (rzbin >> 2);
-          index = (index << 3) + ir;
+        if (iSeed_ == 4 || iSeed_ == 5 ||iSeed_ == 6 || iSeed_ == 7 ) {  //Also use r-position
+          int irbits = outervmstub.stub()->r().nbits();        
+
+          int ir = outervmstub.stub()->r().value();
+
+          irbin = rtorbin(layerdisk2_, (ir*120)/(1<<irbits), true);
+
+          index += (irbin<<(outerphibits_+innerphibits_));
         }
 
 
+/*
+        if (iSeed_ == 4 || iSeed_ == 5) {  //Also use r-position
+          int irbin = ((ibin & 3) << 1) + (rzbin >> 2);
+          index = (index << 3) + irbin;
+        }
+*/
         if (start != ibin)
           rzbin += 8;
         if ((rzbin < rzbinfirst) || (rzbin - rzbinfirst > rzdiffmax)) {
@@ -142,6 +145,39 @@ void TrackletEngine::execute() {
 
         int ptinnerindex = (index << innerbend.nbits()) + innerbend.value();
         int ptouterindex = (index << outerbend.nbits()) + outerbend.value();
+
+
+        //Debugging
+/*
+        if (innerptlut_.bendtable_[ptinnerindex] > 90){
+          edm::LogVerbatim("Tracklet") << "innerbend = " << innerbend.value();
+          edm::LogVerbatim("Tracklet") << "inner z = " << izbin;
+          edm::LogVerbatim("Tracklet") << "outer r       = " << irbin;
+          edm::LogVerbatim("Tracklet") << "outer r table = " << innerptlut_.rbintable_[ptinnerindex];
+          edm::LogVerbatim("Tracklet") << "seed = " << iSeed_;
+
+        }
+
+        if (outerptlut_.bendtable_[ptouterindex] > 90){
+          edm::LogVerbatim("Tracklet") << "outerbend = " << outerbend.value();
+          edm::LogVerbatim("Tracklet") << "inner z = " << izbin;
+          edm::LogVerbatim("Tracklet") << "outer r       = " << irbin;
+          edm::LogVerbatim("Tracklet") << "outer r table = " << outerptlut_.rbintable_[ptouterindex];
+          edm::LogVerbatim("Tracklet") << "seed = " << iSeed_;
+
+          }
+*/
+/*
+        if (irbin != innerptlut_.rbintable_[ptinnerindex]){
+          edm::LogVerbatim("Tracklet") << "innerbend = " << innerbend.value();
+          edm::LogVerbatim("Tracklet") << "inner z = " << izbin;
+          edm::LogVerbatim("Tracklet") << "outer r       = " << irbin;
+          edm::LogVerbatim("Tracklet") << "outer r table = " << innerptlut_.rbintable_[ptinnerindex];
+          edm::LogVerbatim("Tracklet") << "seed = " << iSeed_;
+
+        }
+*/
+
 
 
         if (!(innerptlut_.lookup(ptinnerindex) && outerptlut_.lookup(ptouterindex))) {

@@ -109,12 +109,14 @@ void MatchEngine::execute() {
     //If we have more projections and the buffer is not full we read
     //next projection and put in buffer if there are stubs in the
     //memory the projection points to
+    Tracklet* proj;
+
 
     if ((!moreproj) && (!buffernotempty))
       break;
 
     if (moreproj && (!bufferfull)) {
-      Tracklet* proj = vmprojs_->getTracklet(iproj);
+      proj = vmprojs_->getTracklet(iproj);
 
       int iprojtmp = iproj;
 
@@ -173,7 +175,7 @@ void MatchEngine::execute() {
           second = true;
         }
 
-        Tracklet* proj = vmprojs_->getTracklet(projindex);
+        proj = vmprojs_->getTracklet(projindex);
 
         FPGAWord fpgafinephi = proj->proj(layerdisk_).fpgafinephivm();
 
@@ -234,9 +236,34 @@ void MatchEngine::execute() {
       constexpr int maxdeltaphicut = 5;
       bool passphi = (std::abs(deltaphi) < mindeltaphicut) || (std::abs(deltaphi) > maxdeltaphicut);
 
-      unsigned int index = (projrinv << nbits) + vmstub.bend().value();
-      if (!barrel_ && isPSmodule) {
-        index += (1 << (nrinv_ + N_BENDBITS_2S));
+      unsigned int index;
+
+      if (barrel_){
+        if (isPSmodule){
+          
+          int znbits = vmstub.stub()->z().nbits();
+          int iz = abs(vmstub.stub()->z().value());
+
+          int izbin = ztozbin(layerdisk_, iz*120/(1<<(znbits-1)));
+
+          index = (izbin<<(nbits+nrinv_)) + (projrinv<<nbits) + vmstub.bend().value();
+
+        } else{
+          index = (projrinv << nbits) + vmstub.bend().value();
+        }
+      } else {
+        if (isPSmodule){
+          int irbits = vmstub.stub()->r().nbits();        
+
+          int ir = vmstub.stub()->r().value();
+
+          int irbin = rtorbin(layerdisk_, (ir*120)/(1<<irbits), isPSmodule);
+
+          index =  (1 << (nrinv_ + N_BENDBITS_2S)) + (irbin<<(nbits+nrinv_))  + (projrinv<<nbits) + vmstub.bend().value();
+
+        } else {
+          index = (projrinv << nbits) + vmstub.bend().value();
+        }
       }
 
       //Check if stub z position consistent
@@ -266,6 +293,19 @@ void MatchEngine::execute() {
                                      << " rzbin istubtmp : " << rzbin << " " << istubtmp << " dz " << stubfinerz << " "
                                      << projfinerzadj << "  dphi: " << deltaphi;
       }
+
+      /*
+      //Debugging MTC
+      ofstream MEDebug("MatchEngineDebug.txt", ofstream::app);
+
+      const L1TStub* l1tstub = vmstub.stub()->l1tstub();
+
+      bool tpMatch = proj->stubtruthmatch(l1tstub);
+
+      MEDebug << l1tstub->r() << "," << l1tstub->z() << "," << l1tstub->bend()  << "," << luttable_.lookup(index) << "," << luttable_.bendtable_[index] << "," << tpMatch << endl;
+
+      MEDebug.close();
+      */
 
       //Check if stub bend and proj rinv consistent
       if (passz && passphi) {

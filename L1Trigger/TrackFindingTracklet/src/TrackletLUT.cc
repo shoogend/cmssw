@@ -255,8 +255,16 @@ void TrackletLUT::initteptlut(bool fillInner,
   bool useTMCorr = settings_.useTMCorr;
 
   int outerrbits = 0;
-  if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4) {
+  if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4 || iSeed == Seed::L1D1 || iSeed == Seed::L2D1) {
     outerrbits = 3;
+  }
+
+  unsigned int nzbins = 1;
+
+  if (useTMCorr){
+    if (iSeed == Seed::L1L2 || iSeed == Seed::L2L3 || iSeed == Seed::L3L4){
+      nzbins = 8;
+    }
   }
 
   int outerrbins = (1 << outerrbits);
@@ -266,6 +274,7 @@ void TrackletLUT::initteptlut(bool fillInner,
   double phiinner[2];
   double phiouter[2];
   double router[2];
+  double zinner[2];
 
   unsigned int nbendbitsinner = 3;
   unsigned int nbendbitsouter = 3;
@@ -289,57 +298,39 @@ void TrackletLUT::initteptlut(bool fillInner,
   }
 
 
-  unsigned int nzbins = 1;
 
-  if (useTMCorr){
-    if (iSeed == 0 || iSeed == 1 || iSeed == 2)
-      //nzbins = 13;
-      nzbins = 8;
-  }
+  for (unsigned int izinnerbin = 0; izinnerbin < nzbins; izinnerbin++){
 
-  for (unsigned int iz = 0; iz < nzbins; iz++){
-
-    /*
-    double zinner;
-    if (layerdisk1 > 5) {
-      zinner = settings_.zmean(layerdisk1-N_LAYER);
-    } else {
-      if (layerdisk1 > 2 ){
-        zinner = 0;
-      } else{
-        zinner = settings_.zmeanTE(layerdisk1,iz);
-      }
+    if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4){
+      zinner[0] = settings_.zmean(layerdisk1-N_LAYER);
+      zinner[1] = settings_.zmean(layerdisk1-N_LAYER);
+    } else if (iSeed == Seed::L1L2 || iSeed == Seed::L2L3 || iSeed == Seed::L3L4){
+      zinner[0] = 0 + izinnerbin*15;
+      zinner[1] = 0 + (izinnerbin + 1)*15;
+    } else{
+      zinner[0] = 0;
+      zinner[1] = 0;
     }
-    */
-
-    double zinner = (iSeed == 4 || iSeed == 5) ? settings_.zmean(layerdisk1-N_LAYER) : 0+iz*15;
 
     double zouter;
 
-    if (layerdisk1 == 0 && iz > 4){
-      if (iz == 7){
-        zinner = 12 + iz*15; 
+    for (int irouterbin = 0; irouterbin < outerrbins; irouterbin++) {
+      if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4 || iSeed == Seed::L1D1 || iSeed == Seed::L2D1) {
+        router[0] = settings_.rmindiskvm() + irouterbin      * (settings_.rmaxdiskvm() - settings_.rmindiskvm()) / outerrbins;
+        router[1] = settings_.rmindiskvm() +(irouterbin + 1) * (settings_.rmaxdiskvm() - settings_.rmindiskvm()) / outerrbins;
+      } else {
+        router[0] = settings_.rmean(layerdisk2);
+        router[1] = settings_.rmean(layerdisk2);
       }
-      zinner = 7.5 + iz*15;
-    }
 
 
-    for (int iphiinnerbin = 0; iphiinnerbin < innerphibins; iphiinnerbin++) {
-      phiinner[0] = innerphimin + iphiinnerbin * (innerphimax - innerphimin) / innerphibins;
-      phiinner[1] = innerphimin + (iphiinnerbin + 1) * (innerphimax - innerphimin) / innerphibins;
-      for (int iphiouterbin = 0; iphiouterbin < outerphibins; iphiouterbin++) {
-        phiouter[0] = outerphimin + iphiouterbin * (outerphimax - outerphimin) / outerphibins;
-        phiouter[1] = outerphimin + (iphiouterbin + 1) * (outerphimax - outerphimin) / outerphibins;
-        for (int irouterbin = 0; irouterbin < outerrbins; irouterbin++) {
-          if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4 || iSeed == Seed::L1D1 || iSeed == Seed::L2D1) {
-            router[0] =
-                settings_.rmindiskvm() + irouterbin * (settings_.rmaxdiskvm() - settings_.rmindiskvm()) / outerrbins;
-            router[1] = settings_.rmindiskvm() +
-                        (irouterbin + 1) * (settings_.rmaxdiskvm() - settings_.rmindiskvm()) / outerrbins;
-          } else {
-            router[0] = settings_.rmean(layerdisk2);
-            router[1] = settings_.rmean(layerdisk2);
-          }
+      for (int iphiinnerbin = 0; iphiinnerbin < innerphibins; iphiinnerbin++) {
+        phiinner[0] = innerphimin + iphiinnerbin * (innerphimax - innerphimin) / innerphibins;
+        phiinner[1] = innerphimin + (iphiinnerbin + 1) * (innerphimax - innerphimin) / innerphibins;
+        for (int iphiouterbin = 0; iphiouterbin < outerphibins; iphiouterbin++) {
+          phiouter[0] = outerphimin + iphiouterbin * (outerphimax - outerphimin) / outerphibins;
+          phiouter[1] = outerphimin + (iphiouterbin + 1) * (outerphimax - outerphimin) / outerphibins;
+
 
           double bendinnermin = 20.0;
           double bendinnermax = -20.0;
@@ -353,27 +344,33 @@ void TrackletLUT::initteptlut(bool fillInner,
             for (int i2 = 0; i2 < 2; i2++) {
               for (int i3 = 0; i3 < 2; i3++) {
 
-                if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4 || iSeed == Seed::L1D1 || iSeed == Seed::L2D1) {
+                if(iSeed == Seed::D1D2 || iSeed == Seed::D3D4 ) {
                   zouter = settings_.zmean(layerdisk2 - N_LAYER);
-                  if (iSeed == Seed::D1D2 || iSeed == Seed::D3D4){
-                    rinner = router[i3] * settings_.zmean(layerdisk1 - N_LAYER) / settings_.zmean(layerdisk2 - N_LAYER);
-                  } else{
-                    rinner = settings_.rmean(layerdisk1);
-                  }
-                } else {
-                  rinner = settings_.rmean(layerdisk1);
-                  zouter = zinner*router[i3]/rinner;
+                  rinner = router[i3] * zinner[0] / zouter;
 
+                } else if(iSeed == Seed::L1D1 || iSeed == Seed::L2D1){
+                  rinner = settings_.rmean(layerdisk1);
+                  zouter = settings_.zmean(layerdisk2 - N_LAYER);
+                  
+                  zinner[0] = zouter*rinner/router[0];
+                  zinner[1] = zouter*rinner/router[1];
+
+                } else{
+                  rinner = settings_.rmean(layerdisk1);
+                  zouter = zinner[i3]*router[0]/rinner;
+                
                   if (zouter > 120){
                     zouter = 120;
-                    zinner = rinner*zouter/router[i3];
+                    zinner[0] = rinner*(zouter-15)/router[0];
+                    zinner[1] = rinner*zouter/router[0];
                   }
                 }
 
+/*
                 if (iSeed == Seed::L1D1 || iSeed == Seed::L2D1){
                   zinner = zouter*rinner/router[i3];
                 }
-
+*/
 
                 double rinv1 = -rinv(phiinner[i1], phiouter[i2], rinner, router[i3]);
                 double pitchinner =
@@ -385,13 +382,13 @@ void TrackletLUT::initteptlut(bool fillInner,
                 double abendouter;
 
                 if (layerdisk1 <= 5 && layerdisk2 <=5){
-                  abendinner = bendBarrel_TE(rinner    , zinner, layerdisk1 + 1, rinv1, pitchinner, useTMCorr);
+                  abendinner = bendBarrel_TE(rinner    , zinner[i3], layerdisk1 + 1, rinv1, pitchinner, useTMCorr);
                   abendouter = bendBarrel_TE(router[i3], zouter, layerdisk2 + 1, rinv1, pitchouter, useTMCorr);
                 } else if (layerdisk1 <= 5 && layerdisk2 > 5){
-                  abendinner = bendBarrel_TE(rinner  , zinner, layerdisk1 + 1, rinv1, pitchinner, useTMCorr);
+                  abendinner = bendBarrel_TE(rinner  , zinner[i3], layerdisk1 + 1, rinv1, pitchinner, useTMCorr);
                   abendouter = bendDisk_TE(router[i3], zouter, layerdisk2 - 5, rinv1, pitchouter, isPSouter, useTMCorr);
                 } else{ 
-                  abendinner = bendDisk_TE(rinner    , zinner, layerdisk1 - 5, rinv1, pitchinner, isPSinner, useTMCorr);
+                  abendinner = bendDisk_TE(rinner    , zinner[i3], layerdisk1 - 5, rinv1, pitchinner, isPSinner, useTMCorr);
                   abendouter = bendDisk_TE(router[i3], zouter, layerdisk2 - 5, rinv1, pitchouter, isPSouter, useTMCorr);
                 }
 
@@ -411,7 +408,7 @@ void TrackletLUT::initteptlut(bool fillInner,
           }
 
 
-          unsigned int zbininner = iz;
+          unsigned int zbininner = izinnerbin;
           unsigned int zbinouter;
           
           if (layerdisk2 < 3){
@@ -427,14 +424,17 @@ void TrackletLUT::initteptlut(bool fillInner,
             rbininner = rtorbin(layerdisk1, rinner, isPSinner);
           }
 
+          unsigned int rzbininner = (layerdisk1 >= 6) ? rbininner : zbininner;
+          unsigned int rzbinouter = (layerdisk2 >= 6) ? rbinouter : zbinouter;
+
           bool passptcut = rinvmin < settings_.rinvcutte();
 
           if (fillInner) {
   
             for (int ibend = 0; ibend < (1 << nbendbitsinner); ibend++) {
 
-              double bendcutInner = settings_.bendcutTE(ibend, layerdisk1, zbininner, rbininner, isPSinner);
-              double bend = settings_.benddecodeTE(ibend, layerdisk1, zbininner, rbininner, isPSinner);
+              double bendcutInner = settings_.bendcutTE(ibend, layerdisk1, rzbininner, isPSinner);
+              double bend = settings_.benddecodeTE(ibend, layerdisk1, rzbininner, isPSinner);
 
 
               bool passinner = bend > bendinnermin - bendcutInner &&
@@ -451,8 +451,8 @@ void TrackletLUT::initteptlut(bool fillInner,
           } else {
 
             for (int ibend = 0; ibend < (1 << nbendbitsouter); ibend++) {
-              double bendcutOuter = settings_.bendcutTE(ibend, layerdisk2, zbinouter, rbinouter, isPSouter);
-              double bend = settings_.benddecodeTE(ibend, layerdisk2, zbinouter, rbinouter, isPSouter);
+              double bendcutOuter = settings_.bendcutTE(ibend, layerdisk2, rzbinouter, isPSouter);
+              double bend = settings_.benddecodeTE(ibend, layerdisk2, rzbinouter, isPSouter);
 
               bool passouter = bend > bendoutermin - bendcutOuter &&
                                bend < bendoutermax + bendcutOuter;
@@ -519,8 +519,16 @@ void TrackletLUT::initProjectionBend(double k_phider,
 
         double rinv = -phider * (2.0 * t);
 
+        bool isPS = false;
+
+        if (((idisk ==1 || idisk ==2) && rproj<=Settings::diskSpacingCut[0]) || ((idisk==3 || idisk ==4) && rproj<=Settings::diskSpacingCut[1]) || (idisk==5 && rproj<=Settings::diskSpacingCut[2])){
+          isPS = true;
+        }
+
+        double z = settings_.zmean(idisk);
+
         double stripPitch = (rproj < settings_.rcrit()) ? settings_.stripPitch(true) : settings_.stripPitch(false);
-        double bendproj = bendstrip(rproj, rinv, stripPitch);
+        double bendproj = bendDisk_TE(rproj, z, idisk, rinv,stripPitch, isPS , true);
 
         int ibendproj = 2.0 * bendproj + 15.5;
         if (ibendproj < 0)
@@ -541,41 +549,64 @@ void TrackletLUT::initProjectionBend(double k_phider,
 }
 
 void TrackletLUT::initBendMatch(unsigned int layerdisk) {
+
+  bool useTMCorr = settings_.useTMCorr;
   unsigned int nrinv = NRINVBITS;
   double rinvhalf = 0.5 * ((1 << nrinv) - 1);
 
   bool barrel = layerdisk < N_LAYER;
+
   bool isPSmodule = layerdisk < N_PSLAYER;
   double stripPitch = settings_.stripPitch(isPSmodule);
 
   if (barrel) {
+
+    double r = settings_.rmean(layerdisk);
+
     unsigned int nbits = isPSmodule ? N_BENDBITS_PS : N_BENDBITS_2S;
 
-    for (unsigned int irinv = 0; irinv < (1u << nrinv); irinv++) {
-      double rinv = (irinv - rinvhalf) * (1 << (settings_.nbitsrinv() - nrinv)) * settings_.krinvpars();
+    unsigned int nzbins = isPSmodule ? 8 : 1;
 
-      double projbend = bendstrip(settings_.rmean(layerdisk), rinv, stripPitch);
-      for (unsigned int ibend = 0; ibend < (1u << nbits); ibend++) {
-        double stubbend = settings_.benddecode(ibend, layerdisk, isPSmodule);
-        bool pass = std::abs(stubbend - projbend) < settings_.bendcutme(ibend, layerdisk, isPSmodule);
-        table_.push_back(pass);
+    for (unsigned int iz = 0; iz < nzbins; iz++){
+
+      double z = 0 + iz*15;
+
+      for (unsigned int irinv = 0; irinv < (1u << nrinv); irinv++) {
+        double rinv = (irinv - rinvhalf) * (1 << (settings_.nbitsrinv() - nrinv)) * settings_.krinvpars();
+
+        double projbend = bendBarrel_TE(r  , z, layerdisk + 1, rinv, stripPitch, useTMCorr);
+
+        for (unsigned int ibend = 0; ibend < (1u << nbits); ibend++) {
+          double stubbend = settings_.benddecodeTE(ibend, layerdisk, iz, isPSmodule);
+          bool pass = std::abs(stubbend - projbend) < 1.0*settings_.bendcutTE(ibend, layerdisk, iz, isPSmodule);
+          table_.push_back(pass);
+
+          bendtable_.push_back(stubbend);
+        }
       }
     }
   } else {
+
     for (unsigned int iprojbend = 0; iprojbend < (1u << nrinv); iprojbend++) {
       double projbend = 0.5 * (iprojbend - rinvhalf);
       for (unsigned int ibend = 0; ibend < (1 << N_BENDBITS_2S); ibend++) {
-        double stubbend = settings_.benddecode(ibend, layerdisk, false);
-        bool pass = std::abs(stubbend - projbend) < settings_.bendcutme(ibend, layerdisk, false);
+        double stubbend = settings_.benddecodeTE(ibend, layerdisk, 0, false);
+        bool pass = std::abs(stubbend - projbend) < 1.8*settings_.bendcutTE(ibend, layerdisk, 0, false);
         table_.push_back(pass);
+
+        bendtable_.push_back(stubbend);
       }
     }
-    for (unsigned int iprojbend = 0; iprojbend < (1u << nrinv); iprojbend++) {
-      double projbend = 0.5 * (iprojbend - rinvhalf);
-      for (unsigned int ibend = 0; ibend < (1 << N_BENDBITS_PS); ibend++) {
-        double stubbend = settings_.benddecode(ibend, layerdisk, true);
-        bool pass = std::abs(stubbend - projbend) < settings_.bendcutme(ibend, layerdisk, true);
-        table_.push_back(pass);
+    for (unsigned int ir = 0; ir < 8; ir++){
+      for (unsigned int iprojbend = 0; iprojbend < (1u << nrinv); iprojbend++) {
+        double projbend = 0.5 * (iprojbend - rinvhalf);
+        for (unsigned int ibend = 0; ibend < (1 << N_BENDBITS_PS); ibend++) {
+          double stubbend = settings_.benddecodeTE(ibend, layerdisk, ir, true);
+          bool pass = std::abs(stubbend - projbend) < 1.8*settings_.bendcutTE(ibend, layerdisk, ir, true);
+          table_.push_back(pass);
+
+          bendtable_.push_back(stubbend);
+        }
       }
     }
   }
