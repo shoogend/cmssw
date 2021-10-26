@@ -603,6 +603,9 @@ void Converter<DDLCompositeMaterial>::operator()(xml_h element) const {
 
 #endif
 
+    if (ns.context()->makePayload) {
+      ns.context()->compMaterialsVec.emplace_back(std::make_pair(nam, density));
+    }
     for (composites.reset(); composites; ++composites) {
       xml_dim_t xfrac(composites);
       xml_dim_t xfrac_mat(xfrac.child(DD_CMU(rMaterial)));
@@ -610,8 +613,7 @@ void Converter<DDLCompositeMaterial>::operator()(xml_h element) const {
       string fracname = ns.realName(xfrac_mat.nameStr());
 
       if (ns.context()->makePayload) {
-        ns.context()->allCompMaterials[nam].first = density;
-        ns.context()->allCompMaterials[nam].second.emplace_back(
+        ns.context()->compMaterialsRefs[nam].emplace_back(
             cms::DDParsingContext::CompositeMaterial(ns.prepend(fracname), fraction));
       }
       TGeoMaterial* frac_mat = mgr.GetMaterial(fracname.c_str());
@@ -931,8 +933,8 @@ void Converter<DDLPosPart>::operator()(xml_h element) const {
 
   Volume parent = ns.volume(parentName, false);
   Volume child = ns.volume(childName, false);
-  Volume* parentPtr = ns.getVolPtr(parentName);
-  Volume* childPtr = ns.getVolPtr(childName);
+  Assembly parAsmb = ns.assembly(parentName, false);
+  Assembly childAsmb = ns.assembly(childName, false);
 
 #ifdef EDM_ML_DEBUG
 
@@ -948,25 +950,26 @@ void Converter<DDLPosPart>::operator()(xml_h element) const {
 
 #endif
 
-  if (!parent.isValid() && strchr(parentName.c_str(), NAMESPACE_SEP) == nullptr)
+  if (!parent.isValid() && !parAsmb.isValid() && strchr(parentName.c_str(), NAMESPACE_SEP) == nullptr) {
     parentName = ns.prepend(parentName);
-  parent = ns.volume(parentName, false);
-  if (parentPtr == nullptr)
-    parentPtr = ns.getVolPtr(parentName);
-  if (!parent.isValid() && parentPtr == nullptr)
-    throw runtime_error("Unknown volume identifier:" + parentName);
+    parAsmb = ns.assembly(parentName, false);
+    if (!parAsmb.isValid())
+      parent = ns.volume(parentName);
+  }
 
-  if (!child.isValid() && strchr(childName.c_str(), NAMESPACE_SEP) == nullptr)
+  if (!child.isValid() && !childAsmb.isValid() && strchr(childName.c_str(), NAMESPACE_SEP) == nullptr) {
     childName = ns.prepend(childName);
-  child = ns.volume(childName, false);
-  if (childPtr == nullptr)
-    childPtr = ns.getVolPtr(childName);
-  if (childPtr != nullptr && parentPtr != nullptr && ((*parentPtr)->IsAssembly() || (*childPtr)->IsAssembly())) {
+    child = ns.volume(childName, false);
+    childAsmb = ns.assembly(childName, false);
+  }
+  if (parAsmb.isValid() || childAsmb.isValid()) {
     printout(ns.context()->debug_placements ? ALWAYS : DEBUG,
              "DD4CMS",
              "***** Placing assembly parent %s, child %s",
              parentName.c_str(),
              childName.c_str());
+    Volume* parentPtr = parAsmb.isValid() ? &parAsmb : &parent;
+    Volume* childPtr = childAsmb.isValid() ? &childAsmb : &child;
     placeAssembly(parentPtr, parentName, childPtr, childName, copy, transform, ns);
     return;
   }
@@ -1716,7 +1719,6 @@ void Converter<DDLAssembly>::operator()(xml_h element) const {
       ns.context()->debug_shapes ? ALWAYS : DEBUG, "DD4CMS", "+   Assembly: Adding solid -> Assembly: %s", nam.c_str());
 #endif
 
-  ns.addSolid(nam, Box(nam, 1, 1, 1));  // Add a dummy solid to allow assembly to be treated like other volumes
   ns.addAssemblySolid(nam);
 }
 
@@ -1863,9 +1865,6 @@ void Converter<DDLDivision>::operator()(xml_h element) const {
     Volume child = parent.divide(childName, static_cast<int>(axesmap.at(axis)), numCopies, startInDeg, widthInDeg);
 
     ns.context()->volumes[childName] = child;
-    // ns.context()->volPtrs[childName] = &(ns.context()->volumes[childName]);
-    // TGeoVolumeMulti objects not needed in volPtrs list, and they cause
-    // crash when IsAssembly() method is called on them.
 
 #ifdef EDM_ML_DEBUG
 
@@ -1901,7 +1900,6 @@ void Converter<DDLDivision>::operator()(xml_h element) const {
     Volume child = parent.divide(childName, static_cast<int>(axesmap.at(axis)), nReplicas, -dy + offset + width, width);
 
     ns.context()->volumes[childName] = child;
-    // ns.context()->volPtrs[childName] = &(ns.context()->volumes[childName]);
 
 #ifdef EDM_ML_DEBUG
 

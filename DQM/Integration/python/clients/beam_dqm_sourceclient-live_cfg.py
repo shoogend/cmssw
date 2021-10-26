@@ -60,10 +60,10 @@ process.hltTriggerTypeFilter = cms.EDFilter("HLTTriggerTypeFilter",
 #----------------------------
 # DQM Live Environment
 process.load("DQM.Integration.config.environment_cfi")
-process.dqmEnv.subSystemFolder = 'BeamMonitor'
-process.dqmSaver.tag           = 'BeamMonitor'
+process.dqmEnv.subSystemFolder = 'BeamMonitorLegacy'
+process.dqmSaver.tag           = 'BeamMonitorLegacy'
 process.dqmSaver.runNumber     = options.runNumber
-process.dqmSaverPB.tag         = 'BeamMonitor'
+process.dqmSaverPB.tag         = 'BeamMonitorLegacy'
 process.dqmSaverPB.runNumber   = options.runNumber
 
 process.dqmEnvPixelLess = process.dqmEnv.clone(
@@ -89,7 +89,7 @@ process.load("DQM.BeamMonitor.BeamMonitor_Pixel_cff")
 process.load("DQM.BeamMonitor.BeamSpotProblemMonitor_cff")
 process.load("DQM.BeamMonitor.BeamConditionsMonitor_cff")
 
-if process.dqmRunConfig.type.value() is "production":
+if process.dqmRunConfig.type.value() == "production":
   process.dqmBeamMonitor.BeamFitter.WriteAscii = True
   process.dqmBeamMonitor.BeamFitter.AsciiFileName = '/nfshome0/yumiceva/BeamMonitorDQM/BeamFitResultsOld.txt'
   process.dqmBeamMonitor.BeamFitter.WriteDIPAscii = True
@@ -338,11 +338,12 @@ process.tracking_FirstStep = cms.Sequence(
     * process.recopixelvertexing)
 
 # triggerName for selecting pv for DIP publication, no wildcard needed here
-# it will pick all triggers which has these strings in theri name
+# it will pick all triggers which have these strings in their name
 process.dqmBeamMonitor.jetTrigger  = [
          "HLT_PAZeroBias_v", "HLT_ZeroBias_v", "HLT_QuadJet",
          "HLT_ZeroBias_",
-         "HLT_HI"]
+         "HLT_HI",
+         "HLT_PixelClusters"]
 
 # for HI only: select events based on the pixel cluster multiplicity
 if (process.runType.getRunType() == process.runType.hi_run):
@@ -435,4 +436,6 @@ else:
                        * process.tracking_FirstStep
                        * process.monitor
                        * process.BeamSpotProblemModule)
+
+print("Final Source settings:", process.source)
 

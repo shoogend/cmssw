@@ -40,8 +40,12 @@
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCALCTCrossCLCT.h"
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCUpgradeAnodeLCTProcessor.h"
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCUpgradeCathodeLCTProcessor.h"
+#include "L1Trigger/CSCTriggerPrimitives/interface/LCTQualityAssignment.h"
 #include "DataFormats/CSCDigi/interface/CSCCorrelatedLCTDigi.h"
 #include "DataFormats/CSCDigi/interface/CSCShowerDigi.h"
+#include "CondFormats/CSCObjects/interface/CSCL1TPLookupTableCCLUT.h"
+#include "CondFormats/CSCObjects/interface/CSCL1TPLookupTableME21ILT.h"
+#include "CondFormats/CSCObjects/interface/CSCL1TPLookupTableME11ILT.h"
 
 class CSCMotherboard : public CSCBaseboard {
 public:
@@ -58,7 +62,7 @@ public:
 
   /** Run function for normal usage.  Runs cathode and anode LCT processors,
       takes results and correlates into CorrelatedLCT. */
-  virtual void run(const CSCWireDigiCollection* wiredc, const CSCComparatorDigiCollection* compdc);
+  void run(const CSCWireDigiCollection* wiredc, const CSCComparatorDigiCollection* compdc);
 
   /*
     Returns vector of good correlated LCTs in the read-out time window.
@@ -92,6 +96,9 @@ public:
 
   /** Set configuration parameters obtained via EventSetup mechanism. */
   void setConfigParameters(const CSCDBL1TPParameters* conf);
+  void setESLookupTables(const CSCL1TPLookupTableCCLUT* conf);
+  void setESLookupTables(const CSCL1TPLookupTableME11ILT* conf);
+  void setESLookupTables(const CSCL1TPLookupTableME21ILT* conf);
 
   /** Anode LCT processor. */
   std::unique_ptr<CSCAnodeLCTProcessor> alctProc;
@@ -101,6 +108,11 @@ public:
 
   // VK: change to protected, to allow inheritance
 protected:
+  // access to lookup tables via eventsetup
+  const CSCL1TPLookupTableCCLUT* lookupTableCCLUT_;
+  const CSCL1TPLookupTableME11ILT* lookupTableME11ILT_;
+  const CSCL1TPLookupTableME21ILT* lookupTableME21ILT_;
+
   /* Containers for reconstructed ALCTs and CLCTs */
   std::vector<CSCALCTDigi> alctV;
   std::vector<CSCCLCTDigi> clctV;
@@ -136,6 +148,8 @@ protected:
 
   // encode special bits for high-multiplicity triggers
   unsigned showerSource_;
+
+  bool ignoreAlctCrossClct_;
 
   /*
      Preferential index array in matching window, relative to the ALCT BX.
@@ -184,14 +198,23 @@ protected:
                      const CSCCLCTDigi& secondCLCT,
                      CSCCorrelatedLCTDigi& bLCT,
                      CSCCorrelatedLCTDigi& sLCT,
-                     int type);
+                     int type) const;
 
   /*
      This method calculates all the TMB words and then passes them to the
      constructor of correlated LCTs. The LCT data members are filled with
      information from the ALCT-CLCT combination.
   */
-  CSCCorrelatedLCTDigi constructLCTs(const CSCALCTDigi& aLCT, const CSCCLCTDigi& cLCT, int type, int trknmb) const;
+  void constructLCTs(
+      const CSCALCTDigi& aLCT, const CSCCLCTDigi& cLCT, int type, int trknmb, CSCCorrelatedLCTDigi& lct) const;
+
+  /*
+    This function copies valid ALCT/CLCT information to invalid the ALCT/CLCT
+    if present, so that we always construct the maximum number of valid LCts
+  */
+  void copyValidToInValid(CSCALCTDigi&, CSCALCTDigi&, CSCCLCTDigi&, CSCCLCTDigi&) const;
+
+  bool doesALCTCrossCLCT(const CSCALCTDigi&, const CSCCLCTDigi&) const;
 
   // CLCT pattern number: encodes the pattern number itself
   unsigned int encodePattern(const int clctPattern) const;

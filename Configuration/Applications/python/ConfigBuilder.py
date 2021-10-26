@@ -6,7 +6,6 @@ __source__ = "$Source: /local/reps/CMSSW/CMSSW/Configuration/Applications/python
 
 import FWCore.ParameterSet.Config as cms
 from FWCore.ParameterSet.Modules import _Module
-import six
 # The following import is provided for backward compatibility reasons.
 # The function used to be defined in this file.
 from FWCore.ParameterSet.MassReplace import massReplaceInputTag as MassReplaceInputTag
@@ -303,8 +302,8 @@ class ConfigBuilder(object):
             profilerFormat = "%s___%s___%%I.gz" % (
                 self._options.evt_type.replace("_cfi", ""),
                 hashlib.md5(
-                    str(self._options.step) + str(self._options.pileup) + str(self._options.conditions) +
-                    str(self._options.datatier) + str(self._options.profileTypeLabel)
+                    (str(self._options.step) + str(self._options.pileup) + str(self._options.conditions) +
+                    str(self._options.datatier) + str(self._options.profileTypeLabel)).encode('utf-8')
                 ).hexdigest()
             )
         if not profilerJobFormat and profilerFormat.endswith(".gz"):
@@ -1152,7 +1151,7 @@ class ConfigBuilder(object):
         self.REDIGIDefaultSeq=self.DIGIDefaultSeq
 
     # for alca, skims, etc
-    def addExtraStream(self,name,stream,workflow='full'):
+    def addExtraStream(self, name, stream, workflow='full'):
             # define output module and go from there
         output = cms.OutputModule("PoolOutputModule")
         if stream.selectEvents.parameters_().__len__()!=0:
@@ -1276,7 +1275,7 @@ class ConfigBuilder(object):
         # decide which ALCA paths to use
         alcaList = sequence.split("+")
         maxLevel=0
-        from Configuration.AlCa.autoAlca import autoAlca
+        from Configuration.AlCa.autoAlca import autoAlca, AlCaNoConcurrentLumis
         # support @X from autoAlca.py, and recursion support: i.e T0:@Mu+@EG+...
         self.expandMapping(alcaList,autoAlca)
         self.AlCaPaths=[]
@@ -1284,6 +1283,10 @@ class ConfigBuilder(object):
             alcastream = getattr(alcaConfig,name)
             shortName = name.replace('ALCARECOStream','')
             if shortName in alcaList and isinstance(alcastream,cms.FilteredStream):
+                if shortName in AlCaNoConcurrentLumis:
+                    print("Setting numberOfConcurrentLuminosityBlocks=1 because of AlCa sequence {}".format(shortName))
+                    self._options.nConcurrentLumis = "1"
+                    self._options.nConcurrentIOVs = "1"
                 output = self.addExtraStream(name,alcastream, workflow = workflow)
                 self.executeAndRemember('process.ALCARECOEventContent.outputCommands.extend(process.OutALCARECO'+shortName+'_noDrop.outputCommands)')
                 self.AlCaPaths.append(shortName)
@@ -1365,6 +1368,8 @@ class ConfigBuilder(object):
                 raise Exception("Neither gen fragment of input files provided: this is an inconsistent GEN step configuration")
 
         if not loadFailure:
+            from Configuration.Generator.concurrentLumisDisable import noConcurrentLumiGenerators
+
             generatorModule=sys.modules[loadFragment]
             genModules=generatorModule.__dict__
             #remove lhe producer module since this should have been
@@ -1382,6 +1387,10 @@ class ConfigBuilder(object):
                     theObject = getattr(generatorModule,name)
                     if isinstance(theObject, cmstypes._Module):
                         self._options.inlineObjets=name+','+self._options.inlineObjets
+                        if theObject.type_() in noConcurrentLumiGenerators:
+                            print("Setting numberOfConcurrentLuminosityBlocks=1 because of generator {}".format(theObject.type_()))
+                            self._options.nConcurrentLumis = "1"
+                            self._options.nConcurrentIOVs = "1"
                     elif isinstance(theObject, cms.Sequence) or isinstance(theObject, cmstypes.ESProducer):
                         self._options.inlineObjets+=','+name
 
@@ -1540,7 +1549,7 @@ class ConfigBuilder(object):
                 optionsForHLT['type'] = 'HIon'
             else:
                 optionsForHLT['type'] = 'GRun'
-            optionsForHLTConfig = ', '.join('%s=%s' % (key, repr(val)) for (key, val) in six.iteritems(optionsForHLT))
+            optionsForHLTConfig = ', '.join('%s=%s' % (key, repr(val)) for (key, val) in optionsForHLT.items())
             if sequence == 'run,fromSource':
                 if hasattr(self.process.source,'firstRun'):
                     self.executeAndRemember('process.loadHltConfiguration("run:%%d"%%(process.source.firstRun.value()),%s)'%(optionsForHLTConfig))
@@ -1849,7 +1858,7 @@ class ConfigBuilder(object):
             if self._options.restoreRNDSeeds==False and not self._options.restoreRNDSeeds==True:
                 self._options.restoreRNDSeeds=True
 
-        if not 'DIGI' in self.stepMap and not self._options.fast:
+        if not 'DIGI' in self.stepMap and not self._options.isData and not self._options.fast:
             self.executeAndRemember("process.mix.playback = True")
             self.executeAndRemember("process.mix.digitizers = cms.PSet()")
             self.executeAndRemember("for a in process.aliases: delattr(process, a)")
@@ -2125,7 +2134,9 @@ class ConfigBuilder(object):
         if hasattr(self._options,"procModifiers") and self._options.procModifiers:
             import importlib
             thingsImported=[]
-            for pm in self._options.procModifiers.split(','):
+            for c in self._options.procModifiers:
+                thingsImported.extend(c.split(","))
+            for pm in thingsImported:
                 modifierStrings.append(pm)
                 modifierImports.append('from Configuration.ProcessModifiers.'+pm+'_cff import '+pm)
                 modifiers.append(getattr(importlib.import_module('Configuration.ProcessModifiers.'+pm+'_cff'),pm))
@@ -2263,7 +2274,7 @@ class ConfigBuilder(object):
         self.pythonCfgCode+="from PhysicsTools.PatAlgos.tools.helpers import associatePatAlgosToolsTask\n"
         self.pythonCfgCode+="associatePatAlgosToolsTask(process)\n"
 
-        if self._options.nThreads is not "1":
+        if self._options.nThreads != "1":
             self.pythonCfgCode +="\n"
             self.pythonCfgCode +="#Setup FWK for multithreaded\n"
             self.pythonCfgCode +="process.options.numberOfThreads = "+self._options.nThreads+"\n"

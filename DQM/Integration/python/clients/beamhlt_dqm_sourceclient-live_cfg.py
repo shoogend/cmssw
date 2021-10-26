@@ -76,10 +76,10 @@ process.hltTriggerTypeFilter = cms.EDFilter("HLTTriggerTypeFilter",
 # DQM Live Environment
 #-----------------------------
 process.load("DQM.Integration.config.environment_cfi")
-process.dqmEnv.subSystemFolder = 'BeamMonitor'
-process.dqmSaver.tag           = 'BeamMonitor'
+process.dqmEnv.subSystemFolder = 'BeamMonitorHLT'
+process.dqmSaver.tag           = 'BeamMonitorHLT'
 process.dqmSaver.runNumber     = options.runNumber
-process.dqmSaverPB.tag         = 'BeamMonitor'
+process.dqmSaverPB.tag         = 'BeamMonitorHLT'
 process.dqmSaverPB.runNumber   = options.runNumber
 
 #-----------------------------
@@ -99,7 +99,7 @@ process.GlobalTag.DBParameters.authenticationPath = cms.untracked.string('.')
 
 # Change Beam Monitor variables
 process.dqmBeamMonitor.useLockRecords = cms.untracked.bool(useLockRecords)
-if process.dqmRunConfig.type.value() is "production":
+if process.dqmRunConfig.type.value() == "production":
   process.dqmBeamMonitor.BeamFitter.WriteAscii = True
   process.dqmBeamMonitor.BeamFitter.AsciiFileName = '/nfshome0/yumiceva/BeamMonitorDQM/BeamFitResults.txt'
   process.dqmBeamMonitor.BeamFitter.WriteDIPAscii = True
@@ -160,11 +160,12 @@ if (process.runType.getRunType() == process.runType.pp_run or
     process.dqmBeamMonitor.PVFitter.errorScale = 0.95
 
     #TriggerName for selecting pv for DIP publication, NO wildcard needed here
-    #it will pick all triggers which has these strings in theri name
+    #it will pick all triggers which have these strings in their name
     process.dqmBeamMonitor.jetTrigger = cms.untracked.vstring(
         "HLT_HT300_Beamspot", "HLT_HT300_Beamspot",
         "HLT_PAZeroBias_v", "HLT_ZeroBias_", "HLT_QuadJet",
-        "HLT_HI")
+        "HLT_HI",
+        "HLT_PixelClusters")
 
     process.dqmBeamMonitor.hltResults = "TriggerResults::HLT"
 
@@ -226,4 +227,6 @@ if (process.runType.getRunType() == process.runType.pp_run or
                         * process.dqmcommon
                         * process.offlineBeamSpot
                         * process.monitor )
+
+print("Final Source settings:", process.source)
 

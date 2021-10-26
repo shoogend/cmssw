@@ -6,8 +6,6 @@ from SimTracker.TrackAssociatorProducers.quickTrackAssociatorByHits_cfi import *
 from SimTracker.TrackAssociation.trackingParticleRecoTrackAsssociation_cfi import *
 import Validation.RecoTrack.MultiTrackValidator_cfi
 from Validation.RecoTrack.trajectorySeedTracks_cfi import trajectorySeedTracks as _trajectorySeedTracks
-from SimTracker.TrackAssociation.LhcParametersDefinerForTP_cfi import *
-from SimTracker.TrackAssociation.CosmicParametersDefinerForTP_cfi import *
 from Validation.RecoTrack.PostProcessorTracker_cfi import *
 import Validation.RecoTrack.cutsRecoTracks_cfi as cutsRecoTracks_cfi
 #from . import cutsRecoTracks_cfi
@@ -23,7 +21,6 @@ from CommonTools.RecoAlgos.recoChargedRefCandidateToTrackRefProducer_cfi import 
 import RecoTracker.IterativeTracking.iterativeTkConfig as _cfg
 import RecoTracker.IterativeTracking.iterativeTkUtils as _utils
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
-import six
 
 ### First define the stuff for the standard validation sequence
 ## Track selectors
@@ -184,7 +181,7 @@ def _taskForEachEra(function, args, names, task, modDict, plainArgs=[], modifyTa
         _era.toReplaceWith(defaultTask, modDict[task+_postfix])
 def _setForEra(module, eraName, era, **kwargs):
     if eraName == "":
-        for key, value in six.iteritems(kwargs):
+        for key, value in kwargs.items():
             setattr(module, key, value)
     else:
         era.toModify(module, **kwargs)
@@ -244,7 +241,7 @@ def _getMVASelectors(postfix):
     mvaSel = _utils.getMVASelectors(postfix)
 
     pset = cms.untracked.PSet()
-    for iteration, (trackProducer, classifiers) in six.iteritems(mvaSel):
+    for iteration, (trackProducer, classifiers) in mvaSel.items():
         setattr(pset, trackProducer, cms.untracked.vstring(classifiers))
     return pset
 for _eraName, _postfix, _era in _relevantEras:

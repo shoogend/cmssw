@@ -62,10 +62,10 @@ process.hltTriggerTypeFilter = cms.EDFilter("HLTTriggerTypeFilter",
 #----------------------------
 # DQM Live Environment
 process.load("DQM.Integration.config.environment_cfi")
-process.dqmEnv.subSystemFolder = 'FakeBeamMonitor'
-process.dqmSaver.tag           = 'FakeBeamMonitor'
+process.dqmEnv.subSystemFolder = 'FakeBeamMonitorLegacy'
+process.dqmSaver.tag           = 'FakeBeamMonitorLegacy'
 process.dqmSaver.runNumber     = options.runNumber
-process.dqmSaverPB.tag         = 'FakeBeamMonitor'
+process.dqmSaverPB.tag         = 'FakeBeamMonitorLegacy'
 process.dqmSaverPB.runNumber   = options.runNumber
 
 
@@ -198,6 +198,11 @@ print("Configured frontierKey", options.runUniqueKey)
 
 #---------
 # Final path
+print("Final Source settings:", process.source)
+
 process.p = cms.Path(process.dqmcommon
                      * process.monitor
                     )
+
+
+

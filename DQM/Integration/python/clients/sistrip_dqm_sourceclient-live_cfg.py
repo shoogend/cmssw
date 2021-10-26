@@ -116,6 +116,9 @@ if (process.runType.getRunType() == process.runType.cosmic_run or process.runTyp
 else:
     process.load("Configuration.StandardSequences.Reconstruction_cff")
 
+import RecoVertex.BeamSpotProducer.onlineBeamSpotESProducer_cfi as _mod
+process.BeamSpotESProducer = _mod.onlineBeamSpotESProducer.clone()
+
 import RecoVertex.BeamSpotProducer.BeamSpotOnline_cfi
 process.offlineBeamSpot = RecoVertex.BeamSpotProducer.BeamSpotOnline_cfi.onlineBeamSpotProducer.clone()
 
@@ -243,7 +246,7 @@ if (process.runType.getRunType() == process.runType.cosmic_run or process.runTyp
     process.SiStripAnalyserCosmic.TkMapCreationFrequency  = -1
     process.SiStripAnalyserCosmic.ShiftReportFrequency = -1
     process.SiStripAnalyserCosmic.StaticUpdateFrequency = 5
-    process.SiStripAnalyserCosmic.MonitorSiStripBackPlaneCorrection = False
+    process.SiStripAnalyserCosmic.MonitorSiStrip_PSet.MonitorSiStripBackPlaneCorrection = False
     process.SiStripClients           = cms.Sequence(process.SiStripAnalyserCosmic)
     ### TRACKING
     process.load("DQM.TrackingMonitorClient.TrackingClientConfigP5_Cosmic_cff")
@@ -288,6 +291,17 @@ if (process.runType.getRunType() == process.runType.cosmic_run or process.runTyp
                          )
 
 
+### COMMISSIONING RUN SETTINGS
+if (process.runType.getRunType() == process.runType.commissioning_run):
+    #event selection for commissioning runs
+    if ((process.runType.getRunType() == process.runType.commissioning_run) and live):
+        process.source.SelectEvents = ['HLT_*']
+
+    process.SiStripFedMonitor = cms.Sequence(process.siStripFEDMonitor)
+    process.p = cms.Path(
+        process.siStripFEDCheck *
+        process.SiStripFedMonitor
+    )
 
 #else :
 ### pp COLLISION SETTING
@@ -323,7 +337,7 @@ if (process.runType.getRunType() == process.runType.pp_run or process.runType.ge
     process.SiStripAnalyser.ShiftReportFrequency = -1
     process.SiStripAnalyser.StaticUpdateFrequency = 5
     process.SiStripAnalyser.RawDataTag = "rawDataCollector"
-    process.SiStripAnalyser.MonitorSiStripBackPlaneCorrection = False
+    process.SiStripAnalyser.MonitorSiStrip_PSet.MonitorSiStripBackPlaneCorrection = False
     process.SiStripClients           = cms.Sequence(process.SiStripAnalyser)
 
     process.SiStripMonitorDigi.TotalNumberOfDigisFailure.integrateNLumisections = 25
@@ -428,7 +442,7 @@ if (process.runType.getRunType() == process.runType.hpu_run):
     process.SiStripAnalyser.ShiftReportFrequency = -1
     process.SiStripAnalyser.StaticUpdateFrequency = 5
     process.SiStripAnalyser.RawDataTag = "rawDataCollector"
-    process.SiStripAnalyser.MonitorSiStripBackPlaneCorrection = False
+    process.SiStripAnalyser.MonitorSiStrip_PSet.MonitorSiStripBackPlaneCorrection = False
     process.SiStripClients           = cms.Sequence(process.SiStripAnalyser)
     ### TRACKING
     process.load("DQM.TrackingMonitorClient.TrackingClientConfigP5_cff")
@@ -550,7 +564,7 @@ if (process.runType.getRunType() == process.runType.hi_run):
     process.SiStripAnalyser.ShiftReportFrequency = -1
     process.SiStripAnalyser.StaticUpdateFrequency = 5
     process.SiStripAnalyser.RawDataTag = "rawDataRepacker"
-    process.SiStripAnalyser.MonitorSiStripBackPlaneCorrection = False
+    process.SiStripAnalyser.MonitorSiStrip_PSet.MonitorSiStripBackPlaneCorrection = False
     process.SiStripClients           = cms.Sequence(process.SiStripAnalyser)
 
     process.SiStripMonitorDigi.TotalNumberOfDigisFailure.integrateNLumisections = 25
@@ -648,3 +662,4 @@ if (process.runType.getRunType() == process.runType.hi_run):
 ### process customizations included here
 from DQM.Integration.config.online_customizations_cfi import *
 process = customise(process)
+print("Final Source settings:", process.source)

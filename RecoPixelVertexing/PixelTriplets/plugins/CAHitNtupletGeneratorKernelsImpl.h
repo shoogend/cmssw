@@ -22,7 +22,7 @@
 #include "gpuPixelDoublets.h"
 
 using HitsOnGPU = TrackingRecHit2DSOAView;
-using HitsOnCPU = TrackingRecHit2DCUDA;
+using HitsOnCPU = TrackingRecHit2DGPU;
 
 using HitToTuple = caConstants::HitToTuple;
 using TupleMultiplicity = caConstants::TupleMultiplicity;
@@ -47,7 +47,7 @@ __global__ void kernel_checkOverflows(HitContainer const *foundNtuplets,
                                       uint32_t const *__restrict__ nCells,
                                       gpuPixelDoublets::CellNeighborsVector const *cellNeighbors,
                                       gpuPixelDoublets::CellTracksVector const *cellTracks,
-                                      GPUCACell::OuterHitOfCell const *__restrict__ isOuterHitOfCell,
+                                      GPUCACell::OuterHitOfCell const isOuterHitOfCell,
                                       int32_t nHits,
                                       uint32_t maxNumberOfDoublets,
                                       CAHitNtupletGeneratorKernelsGPU::Counters *counters) {
@@ -113,8 +113,8 @@ __global__ void kernel_checkOverflows(HitContainer const *foundNtuplets,
       atomicAdd(&c.nZeroTrackCells, 1);
   }
 
-  for (int idx = first, nt = nHits; idx < nt; idx += gridDim.x * blockDim.x) {
-    if (isOuterHitOfCell[idx].full())  // ++tooManyOuterHitOfCell;
+  for (int idx = first, nt = nHits - isOuterHitOfCell.offset; idx < nt; idx += gridDim.x * blockDim.x) {
+    if (isOuterHitOfCell.container[idx].full())  // ++tooManyOuterHitOfCell;
       printf("OuterHitOfCell overflow %d\n", idx);
   }
 }
@@ -275,7 +275,7 @@ __global__ void kernel_connect(cms::cuda::AtomicPairCounter *apc1,
                                GPUCACell *cells,
                                uint32_t const *__restrict__ nCells,
                                gpuPixelDoublets::CellNeighborsVector *cellNeighbors,
-                               GPUCACell::OuterHitOfCell const *__restrict__ isOuterHitOfCell,
+                               GPUCACell::OuterHitOfCell const isOuterHitOfCell,
                                float hardCurvCut,
                                float ptmin,
                                float CAThetaCutBarrel,
@@ -297,6 +297,8 @@ __global__ void kernel_connect(cms::cuda::AtomicPairCounter *apc1,
     auto cellIndex = idx;
     auto &thisCell = cells[idx];
     auto innerHitId = thisCell.inner_hit_id();
+    if (int(innerHitId) < isOuterHitOfCell.offset)
+      continue;
     int numberOfPossibleNeighbors = isOuterHitOfCell[innerHitId].size();
     auto vi = isOuterHitOfCell[innerHitId].data();
 
@@ -358,7 +360,8 @@ __global__ void kernel_find_ntuplets(GPUCACell::Hits const *__restrict__ hhp,
     if (doit) {
       GPUCACell::TmpTuple stack;
       stack.reset();
-      thisCell.find_ntuplets(hh, cells, *cellTracks, *foundNtuplets, *apc, quality, stack, minHitsPerNtuplet, pid < 3);
+      thisCell.find_ntuplets<6>(
+          hh, cells, *cellTracks, *foundNtuplets, *apc, quality, stack, minHitsPerNtuplet, pid < 3);
       assert(stack.empty());
       // printf("in %d found quadruplets: %d\n", cellIndex, apc->get());
     }
@@ -448,20 +451,38 @@ __global__ void kernel_classifyTracks(HitContainer const *__restrict__ tuples,
 
     // compute a pT-dependent chi2 cut
 
+    auto roughLog = [](float x) {
+      // max diff [0.5,12] at 1.25 0.16143
+      // average diff  0.0662998
+      union IF {
+        uint32_t i;
+        float f;
+      };
+      IF z;
+      z.f = x;
+      uint32_t lsb = 1 < 21;
+      z.i += lsb;
+      z.i >>= 21;
+      auto f = z.i & 3;
+      int ex = int(z.i >> 2) - 127;
+
+      // log2(1+0.25*f)
+      // averaged over bins
+      const float frac[4] = {0.160497f, 0.452172f, 0.694562f, 0.901964f};
+      return float(ex) + frac[f];
+    };
+
     // (see CAHitNtupletGeneratorGPU.cc)
-    //float pt = std::min<float>(tracks->pt(it), cuts.chi2MaxPt);
-    //float chi2Cut = cuts.chi2Scale *
-    //                (cuts.chi2Coeff[0] + pt * (cuts.chi2Coeff[1] + pt * (cuts.chi2Coeff[2] + pt * cuts.chi2Coeff[3])));
-    float chi2Cut = cuts.chi2Scale;
-    // above number were for Quads not normalized so for the time being just multiple by ndof for Quads  (triplets to be understood)
-    if (3.f * tracks->chi2(it) >= chi2Cut) {
+    float pt = std::min<float>(tracks->pt(it), cuts.chi2MaxPt);
+    float chi2Cut = cuts.chi2Scale * (cuts.chi2Coeff[0] + roughLog(pt) * cuts.chi2Coeff[1]);
+    if (tracks->chi2(it) >= chi2Cut) {
 #ifdef NTUPLE_FIT_DEBUG
-      printf("Bad fit %d size %d pt %f eta %f chi2 %f\n",
+      printf("Bad chi2 %d size %d pt %f eta %f chi2 %f\n",
              it,
              tuples->size(it),
              tracks->pt(it),
              tracks->eta(it),
-             3.f * tracks->chi2(it));
+             tracks->chi2(it));
 #endif
       continue;
     }

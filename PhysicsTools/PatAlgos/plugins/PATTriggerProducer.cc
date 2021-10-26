@@ -133,6 +133,7 @@ namespace pat {
     bool packPathNames_;                          // configuration (optional width default)
     bool packLabels_;                             // configuration (optional width default)
     bool packPrescales_;                          // configuration (optional width default)
+    const edm::ESGetToken<L1GtTriggerMenu, L1GtTriggerMenuRcd> handleL1GtTriggerMenuToken_;
 
     class ModuleLabelToPathAndFlags {
     public:
@@ -212,7 +213,8 @@ PATTriggerProducer::PATTriggerProducer(const ParameterSet& iConfig)
                                                                     : false),
       packLabels_(iConfig.existsAs<bool>("packTriggerLabels") ? iConfig.getParameter<bool>("packTriggerLabels") : true),
       packPrescales_(iConfig.existsAs<bool>("packTriggerPrescales") ? iConfig.getParameter<bool>("packTriggerPrescales")
-                                                                    : true) {
+                                                                    : true),
+      handleL1GtTriggerMenuToken_{esConsumes()} {
   // L1 configuration parameters
   if (iConfig.exists("addL1Algos"))
     addL1Algos_ = iConfig.getParameter<bool>("addL1Algos");
@@ -599,16 +601,22 @@ void PATTriggerProducer::produce(Event& iEvent, const EventSetup& iSetup) {
       for (size_t indexPath = 0; indexPath < sizePaths; ++indexPath) {
         const std::string& namePath = pathNames.at(indexPath);
         unsigned indexLastFilterPathModules(handleTriggerResults->index(indexPath) + 1);
-        while (indexLastFilterPathModules > 0) {
-          --indexLastFilterPathModules;
-          const std::string& labelLastFilterPathModules(hltConfig.moduleLabel(indexPath, indexLastFilterPathModules));
-          unsigned indexLastFilterFilters =
-              handleTriggerEvent->filterIndex(InputTag(labelLastFilterPathModules, "", nameProcess_));
-          if (indexLastFilterFilters < sizeFilters) {
-            if (hltConfig.moduleType(labelLastFilterPathModules) == "HLTBool")
-              continue;
-            break;
+        const unsigned sizeModulesPath(hltConfig.size(indexPath));
+        //protection for paths with zero filters (needed for reco, digi, etc paths)
+        if (sizeModulesPath != 0) {
+          while (indexLastFilterPathModules > 0) {
+            --indexLastFilterPathModules;
+            const std::string& labelLastFilterPathModules(hltConfig.moduleLabel(indexPath, indexLastFilterPathModules));
+            unsigned indexLastFilterFilters =
+                handleTriggerEvent->filterIndex(InputTag(labelLastFilterPathModules, "", nameProcess_));
+            if (indexLastFilterFilters < sizeFilters) {
+              if (hltConfig.moduleType(labelLastFilterPathModules) == "HLTBool")
+                continue;
+              break;
+            }
           }
+        } else {
+          indexLastFilterPathModules = 0;
         }
         TriggerPath triggerPath(namePath,
                                 indexPath,
@@ -619,8 +627,8 @@ void PATTriggerProducer::produce(Event& iEvent, const EventSetup& iSetup) {
                                 indexLastFilterPathModules,
                                 hltConfig.saveTagsModules(namePath).size());
         // add module names to path and states' map
-        const unsigned sizeModulesPath(hltConfig.size(indexPath));
-        assert(indexLastFilterPathModules < sizeModulesPath);
+
+        assert(indexLastFilterPathModules < sizeModulesPath || sizeModulesPath == 0);
         std::map<unsigned, std::string> indicesModules;
         for (size_t iM = 0; iM < sizeModulesPath; ++iM) {
           const std::string& nameModule(hltConfig.moduleLabel(indexPath, iM));
@@ -1073,8 +1081,7 @@ void PATTriggerProducer::produce(Event& iEvent, const EventSetup& iSetup) {
       mapObjectTypes.insert(std::make_pair(HTM, trigger::TriggerL1HTM));
       // get and cache L1 menu
       L1GtUtils const& l1GtUtils = hltPrescaleProvider_.l1GtUtils();
-      ESHandle<L1GtTriggerMenu> handleL1GtTriggerMenu;
-      iSetup.get<L1GtTriggerMenuRcd>().get(handleL1GtTriggerMenu);
+      auto handleL1GtTriggerMenu = iSetup.getHandle(handleL1GtTriggerMenuToken_);
       auto const& l1GtAlgorithms = handleL1GtTriggerMenu->gtAlgorithmMap();
       auto const& l1GtTechTriggers = handleL1GtTriggerMenu->gtTechnicalTriggerMap();
       auto const& l1GtConditionsVector = handleL1GtTriggerMenu->gtConditionMap();

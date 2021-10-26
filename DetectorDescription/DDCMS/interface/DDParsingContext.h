@@ -20,7 +20,6 @@ namespace cms {
       rotations.reserve(3000);
       shapes.reserve(4000);
       volumes.reserve(3000);
-      volPtrs.reserve(3000);
       unresolvedMaterials.reserve(300);
       unresolvedVectors.reserve(300);
       unresolvedShapes.reserve(1000);
@@ -28,7 +27,8 @@ namespace cms {
       namespaces.emplace_back("");
       if (makePayload) {
         rotRevMap.reserve(3000);
-        allCompMaterials.reserve(400);
+        compMaterialsVec.reserve(400);
+        compMaterialsRefs.reserve(400);
       }
     }
 
@@ -82,11 +82,11 @@ namespace cms {
     std::unordered_map<std::string, std::string> rotRevMap;
     std::unordered_map<std::string, dd4hep::Solid> shapes;
     std::unordered_map<std::string, dd4hep::Volume> volumes;
-    std::unordered_map<std::string, dd4hep::Volume*> volPtrs;
     std::vector<std::string> namespaces;
 
     std::unordered_map<std::string, std::vector<CompositeMaterial>> unresolvedMaterials;
-    std::unordered_map<std::string, std::pair<double, std::vector<CompositeMaterial>>> allCompMaterials;
+    std::vector<std::pair<std::string, double>> compMaterialsVec;
+    std::unordered_map<std::string, std::vector<CompositeMaterial>> compMaterialsRefs;
     std::unordered_map<std::string, std::vector<std::string>> unresolvedVectors;
     std::unordered_map<std::string,
                        std::variant<BooleanShape<dd4hep::UnionSolid>,

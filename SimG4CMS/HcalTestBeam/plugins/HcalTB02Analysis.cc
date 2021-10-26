@@ -36,9 +36,9 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/PluginManager/interface/ModuleDef.h"
 
-#include "HcalTB02HcalNumberingScheme.h"
-#include "HcalTB02XtalNumberingScheme.h"
-#include "HcalTB02Histo.h"
+#include "SimG4CMS/HcalTestBeam/interface/HcalTB02HcalNumberingScheme.h"
+#include "SimG4CMS/HcalTestBeam/interface/HcalTB02XtalNumberingScheme.h"
+#include "SimG4CMS/HcalTestBeam/interface/HcalTB02Histo.h"
 
 #include "G4HCofThisEvent.hh"
 #include "G4SDManager.hh"
@@ -47,10 +47,12 @@
 #include "G4ThreeVector.hh"
 #include "G4VProcess.hh"
 
-#include "CLHEP/Random/RandGaussQ.h"
-#include "CLHEP/Units/GlobalSystemOfUnits.h"
-#include "CLHEP/Units/GlobalPhysicalConstants.h"
-#include "Randomize.hh"
+#include <CLHEP/Random/RandGaussQ.h>
+#include <CLHEP/Random/Randomize.h>
+#include <CLHEP/Units/GlobalSystemOfUnits.h>
+#include <CLHEP/Units/GlobalPhysicalConstants.h>
+
+//#define EDM_ML_DEBUG
 
 namespace CLHEP {
   class HepRandomEngine;
@@ -59,14 +61,13 @@ namespace CLHEP {
 class HcalTB02Analysis : public SimProducer, public Observer<const BeginOfEvent*>, public Observer<const EndOfEvent*> {
 public:
   HcalTB02Analysis(const edm::ParameterSet& p);
+  HcalTB02Analysis(const HcalTB02Analysis&) = delete;  // stop default
+  const HcalTB02Analysis& operator=(const HcalTB02Analysis&) = delete;
   ~HcalTB02Analysis() override;
 
   void produce(edm::Event&, const edm::EventSetup&) override;
 
 private:
-  HcalTB02Analysis(const HcalTB02Analysis&) = delete;  // stop default
-  const HcalTB02Analysis& operator=(const HcalTB02Analysis&) = delete;
-
   // observer methods
   void update(const BeginOfEvent* evt) override;
   void update(const EndOfEvent* evt) override;
@@ -129,7 +130,9 @@ void HcalTB02Analysis::produce(edm::Event& e, const edm::EventSetup&) {
 }
 
 void HcalTB02Analysis::update(const BeginOfEvent* evt) {
+#ifdef EDM_ML_DEBUG
   edm::LogVerbatim("HcalTBSim") << "HcalTB02Analysis: =====> Begin of event = " << (*evt)()->GetEventID();
+#endif
   clear();
 }
 
@@ -382,13 +385,13 @@ void HcalTB02Analysis::update(const EndOfEvent* evt) {
 
   int iEvt = (*evt)()->GetEventID();
   if (iEvt < 10)
-    std::cout << " Event " << iEvt << std::endl;
+    edm::LogVerbatim("HcalTBSim") << " Event " << iEvt;
   else if ((iEvt < 100) && (iEvt % 10 == 0))
-    std::cout << " Event " << iEvt << std::endl;
+    edm::LogVerbatim("HcalTBSim") << " Event " << iEvt;
   else if ((iEvt < 1000) && (iEvt % 100 == 0))
-    std::cout << " Event " << iEvt << std::endl;
+    edm::LogVerbatim("HcalTBSim") << " Event " << iEvt;
   else if ((iEvt < 10000) && (iEvt % 1000 == 0))
-    std::cout << " Event " << iEvt << std::endl;
+    edm::LogVerbatim("HcalTBSim") << " Event " << iEvt;
 }
 
 void HcalTB02Analysis::fillEvent(HcalTB02HistoClass& product) {

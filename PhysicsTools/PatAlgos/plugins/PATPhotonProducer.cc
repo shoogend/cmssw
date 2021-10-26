@@ -130,6 +130,9 @@ namespace pat {
     const CaloGeometry* ecalGeometry_;
 
     bool saveRegressionData_;
+
+    const edm::ESGetToken<CaloTopology, CaloTopologyRecord> ecalTopologyToken_;
+    const edm::ESGetToken<CaloGeometry, CaloGeometryRecord> ecalGeometryToken_;
   };
 
 }  // namespace pat
@@ -197,7 +200,9 @@ PATPhotonProducer::PATPhotonProducer(const edm::ParameterSet& iConfig)
                                                 : edm::ParameterSet(),
                 consumesCollector(),
                 false),
-      useUserData_(iConfig.exists("userData")) {
+      useUserData_(iConfig.exists("userData")),
+      ecalTopologyToken_{esConsumes()},
+      ecalGeometryToken_{esConsumes()} {
   // initialize the configurables
   photonToken_ = consumes<edm::View<reco::Photon>>(iConfig.getParameter<edm::InputTag>("photonSource"));
   electronToken_ = consumes<reco::GsfElectronCollection>(iConfig.getParameter<edm::InputTag>("electronSource"));
@@ -284,7 +289,8 @@ PATPhotonProducer::PATPhotonProducer(const edm::ParameterSet& iConfig)
   // Resolution configurables
   addResolutions_ = iConfig.getParameter<bool>("addResolutions");
   if (addResolutions_) {
-    resolutionLoader_ = pat::helper::KinResolutionsLoader(iConfig.getParameter<edm::ParameterSet>("resolutions"));
+    resolutionLoader_ =
+        pat::helper::KinResolutionsLoader(iConfig.getParameter<edm::ParameterSet>("resolutions"), consumesCollector());
   }
   // Check to see if the user wants to add user data
   if (useUserData_) {
@@ -311,13 +317,8 @@ void PATPhotonProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetu
     embedGenMatch_ = false;
   }
 
-  edm::ESHandle<CaloTopology> theCaloTopology;
-  iSetup.get<CaloTopologyRecord>().get(theCaloTopology);
-  ecalTopology_ = &(*theCaloTopology);
-
-  edm::ESHandle<CaloGeometry> theCaloGeometry;
-  iSetup.get<CaloGeometryRecord>().get(theCaloGeometry);
-  ecalGeometry_ = &(*theCaloGeometry);
+  ecalTopology_ = &iSetup.getData(ecalTopologyToken_);
+  ecalGeometry_ = &iSetup.getData(ecalGeometryToken_);
 
   // Get the vector of Photon's from the event
   edm::Handle<edm::View<reco::Photon>> photons;

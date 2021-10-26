@@ -8,7 +8,7 @@
 # Pass in name and status
 function die { echo $1: status $2 ;  exit $2; }
 
-function runTest { echo $1 ; python $1 || die "Failure for configuration: $1" $?; }
+function runTest { echo $1 ; python3 $1 || die "Failure for configuration: $1" $?; }
 
 
 runTest "${LOCAL_TEST_DIR}/RunRepack.py --select-events HLT:path1,HLT:path2 --lfn /store/whatever"
@@ -19,6 +19,12 @@ do
      runTest "${LOCAL_TEST_DIR}/RunExpressProcessing.py --scenario $scenario --global-tag GLOBALTAG --lfn /store/whatever --fevt --dqmio  --alcareco TkAlMinBias+SiStripCalMinBias "
      runTest "${LOCAL_TEST_DIR}/RunVisualizationProcessing.py --scenario $scenario --lfn /store/whatever --global-tag GLOBALTAG --fevt"
      runTest "${LOCAL_TEST_DIR}/RunAlcaHarvesting.py --scenario $scenario --lfn /store/whatever --dataset /A/B/C --global-tag GLOBALTAG --workflows=BeamSpotByRun,BeamSpotByLumi,SiStripQuality"
+done
+
+declare -a arr=("cosmicsEra_Run2_2018" "cosmicsHybridEra_Run2_2018" "cosmicsEra_Run3")
+for scenario in "${arr[@]}"
+do
+     runTest "${LOCAL_TEST_DIR}/RunExpressProcessing.py --scenario $scenario --global-tag GLOBALTAG --lfn /store/whatever --fevt --dqmio  --alcareco SiStripCalCosmicsNano "
 done
 
 declare -a arr=("HeavyIonsEra_Run2_2018")

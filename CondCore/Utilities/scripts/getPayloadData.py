@@ -191,10 +191,10 @@ def discover():
             two_tags = plot_method.isTwoTags()
             output(' - is Two Tags: ', two_tags)
             plot_dict = { 'plot': plot, 'plugin_name': plugin_name, 'title': plot_title, 'plot_type': plot_type, 'single_iov': single_iov, 'two_tags': two_tags }
-            #if modv.label == '2.0':
-            #    input_params = plot_method.inputParams()
-            #    output(' - input params: ', len(input_params))
-            #    plot_dict[ 'input_params'] = input_params
+            if modv.label == '2.0':
+                input_params = plot_method.inputParams()
+                output(' - input params: ', len(input_params))
+                plot_dict[ 'input_params'] = input_params
             result.setdefault(payload_type, []).append( plot_dict )
             output('currently discovered info: ', result)
     output('*** final output:', '')
@@ -279,7 +279,7 @@ if __name__ == '__main__':
         
         # If test -> output the result as formatted json
         if args.test:
-            os.write( 1, str.encode(json.dumps( json.loads( result ), indent=4 )))
+            os.write( 2, str.encode(json.dumps( json.loads( result ), indent=4 )))
 
         # If image plot -> get image file from result, open it and output bytes 
         elif args.image_plot:
@@ -295,18 +295,18 @@ if __name__ == '__main__':
                 os.write( 2, 'Key error when getting image name: %s\n' % str( e ))
 
             if not filename or not os.path.isfile( filename ):
-                os.write( 2, 'Error: Generated image file (%s) not found\n' % filename )
+                os.write( 2, str.encode('Error: Generated image file (%s) not found\n' % filename ))
 
             try:
-                with open( filename, 'r' ) as f:
-                    shutil.copyfileobj( f, sys.stdout )
+                with open( filename, 'rb' ) as f:
+                    shutil.copyfileobj( f, sys.stdout.buffer )
             except IOError as e:
-                os.write( 2, 'IO error when streaming image: %s' % str( e ))
+                os.write( 2, str.encode('IO error when streaming image: %s' % str( e )))
             finally:
                 os.remove( filename )
 
                         
         # Else -> output result json string with base 64 encoding
-        else: 
-            os.write( 1, result.encode( 'base64' ))
-
+        else:
+            import base64
+            os.write( 1, base64.b64encode(bytes(result, 'utf-8')))

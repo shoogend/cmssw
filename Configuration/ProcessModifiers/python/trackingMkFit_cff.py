@@ -8,6 +8,7 @@ from Configuration.ProcessModifiers.trackingMkFitHighPtTripletStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitLowPtTripletStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitDetachedQuadStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitDetachedTripletStep_cff import *
+from Configuration.ProcessModifiers.trackingMkFitPixelPairStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitMixedTripletStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitPixelLessStep_cff import *
 from Configuration.ProcessModifiers.trackingMkFitTobTecStep_cff import *
@@ -17,12 +18,13 @@ trackingMkFit = cms.ModifierChain(
     trackingMkFitCommon,
     trackingMkFitInitialStepPreSplitting,
     trackingMkFitInitialStep,
-    trackingMkFitLowPtQuadStep,
+#    trackingMkFitLowPtQuadStep,       # to be enabled later
     trackingMkFitHighPtTripletStep,
-    trackingMkFitLowPtTripletStep,
+#    trackingMkFitLowPtTripletStep,    # to be enabled later
     trackingMkFitDetachedQuadStep,
 #    trackingMkFitDetachedTripletStep, # to be enabled later
+#    trackingMkFitPixelPairStep,       # to be enabled later
 #    trackingMkFitMixedTripletStep,    # to be enabled later
-    trackingMkFitPixelLessStep,
-    trackingMkFitTobTecStep,
+#    trackingMkFitPixelLessStep,       # to be enabled later
+#    trackingMkFitTobTecStep,          # to be enabled later
 )
